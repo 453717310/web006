@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd">
+    <!--加载四要素-->
+    <context:property-placeholder location="classpath:jdbc.properties"/>
+    <!--配置数据源dbcp-->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="${jdbc.driverClass}"/>
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.userName}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+    <!--创建sessionFactory-->
+    <bean id="sessionFactory" class="org.springframework.orm.hibernate3.LocalSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <!--加载所有的hbm.xml文件-->
+        <property name="mappingDirectoryLocations">
+            <list>
+                <value>classpath:cn.bdqn.bean</value>
+            </list>
+        </property>
+        <property name="hibernateProperties">
+            <props>
+                <prop key="hibernate.hbm2ddl.auto">update</prop>
+                <prop key="dialect">org.hibernate.dialect.Oracle10gDialect</prop>
+                <prop key="show_sql">true</prop>
+                <prop key="format_sql">true</prop>
+                <prop key="current_session_context_class">org.springframework.orm.hibernate3.SpringSessionContext</prop>
+            </props>
+        </property>
+    </bean>
+
+    <!--配置dao层-->
+    <bean id="dao" class="cn.bdqn.dao.impl.BaseDaoImpl" p:sessionFactory-ref="sessionFactory"/>
+    <!--配置service层-->
+    <bean id="service" class="cn.bdqn.service.impl.ProjectServiceImpl" p:dao-ref="dao"/>
+    <bean id="workService" class="cn.bdqn.service.impl.WorkorderServiceImpl" p:workorderBaseDao-ref="dao"/>
+    <!--01配置事务管理器-->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+    <!--设置事务通知-->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <tx:method name="add*" isolation="DEFAULT" propagation="REQUIRED"/>
+            <tx:method name="delete*" isolation="DEFAULT" propagation="REQUIRED"/>
+            <tx:method name="update*" isolation="DEFAULT" propagation="REQUIRED"/>
+            <tx:method name="find*" isolation="DEFAULT" propagation="REQUIRED" read-only="true"/>
+        </tx:attributes>
+    </tx:advice>
+    <!--03指定切入点-->
+    <aop:config>
+        <aop:pointcut id="pointcut" expression="execution(* *..service.*.*(..))"/>
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="pointcut"/>
+    </aop:config>
+    <!--配置struts  bean默认是单例！ action是多例          scope配置成多例 文件-->
+    <bean id="projectAction" class="cn.bdqn.action.ProjectAction" scope="prototype">
+        <property name="projectService" ref="service"/>
+    </bean>
+
+    <bean id="workorderAction" class="cn.bdqn.action.WorkorderAction" scope="prototype">
+        <property name="workorderService" ref="workService"/>
+    </bean>
+
+</beans>
